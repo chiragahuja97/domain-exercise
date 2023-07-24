@@ -1,0 +1,17 @@
+global:
+  scrape_interval:     10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  - job_name: 'attendance-microservice'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['attendance-microservice:8088']
+        labels:
+          application: 'Attendance Microservice Service Application'
+  - job_name: 'swipe-microservice'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['swipe-microservice:8100']
+        labels:
+          application: 'Swipe Microservice Service Application'

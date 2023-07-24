@@ -1,0 +1,166 @@
+version: '2'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 22181:2181
+  
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - 29092:29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      
+  mongoDb:
+
+    # version of mongo we'll use
+    image: mongo:6-jammy
+
+    # local port mapping to container port.  Remember, this
+    # doesn't have to be 27017, you could make this availble
+    # on port 3000 on our local machine via 3000:27017
+    # if we really wanted to.
+    ports:
+      - 27017:27017
+
+    # using a named volume
+    volumes:
+      - dbdata6:/data/db
+
+    # OPTIONAL: This enforces the need for authentication
+   #command: mongod --auth
+  mysqlDb:
+
+    # The image, change 5.7 to any of the supported docker version.
+    image: mysql:5.7
+    networks:
+      - currency-network
+
+    # Required environment variables.
+    # MYSQL_ROOT_PASSWORD defines the root password of the root user
+    # MYSQL_DATABASE names the DB
+    # MYSQL_USER is the non-root user
+    # MYSQL_PASSWORD is the non-root user password
+    environment:
+      MYSQL_ROOT_PASSWORD: "rootpwd"
+      MYSQL_DATABASE: "attendance"
+      MYSQL_USER: "devuser"
+      MYSQL_PASSWORD: "devpwd"
+
+    # What port do you want this MySQL instance to be available on?
+    # The left hand number is what port it will be available on from your machine
+    # perspective.  The right hand number is the post that it's linking up to.
+    # In this case we're saying "link our local 3306 to the docker container's 3306"
+    # which works here, because docker MySQL exposes the MySQL DB to the container's
+    # 3306 port.
+    ports:
+      - 3306:3306
+
+    # We're using a named volume here that docker manages for us.  This is a special
+    # place just for this particular dockerized MySQL instance.
+    volumes:
+      - mydb:/var/lib/mysql    
+      
+       
+  
+  api-gateway:
+    image: domainexercise/mmv2-api-gateway:0.0.1-SNAPSHOT
+    mem_limit: 700m
+    ports:
+      - "8765:8765"
+    networks:
+      - currency-network  
+    depends_on:
+      - naming-server
+    environment:
+      EUREKA.CLIENT.SERVICEURL.DEFAULTZONE: http://naming-server:8761/eureka   
+      #SPRING.ZIPKIN.BASEURL: http://zipkin-server:9411/      
+      
+  attendance-microservice:
+    image: domainexercise/mmv2-attendance-microservice:0.0.1-SNAPSHOT
+    mem_limit: 700m
+    ports:
+      - "8088:8088"
+    networks:
+      - currency-network  
+    depends_on:
+      - naming-server
+      - mysqlDb
+      
+    environment:
+      EUREKA.CLIENT.SERVICEURL.DEFAULTZONE: http://naming-server:8761/eureka 
+      SPRING.DATASOURCE.URL: jdbc:mysql://mysqlDb:3306/attendance
+      #SPRING.ZIPKIN.BASEURL: http://zipkin-server:9411/      
+      
+  swipe-microservice:
+    image: domainexercise/mmv2-swipe-microservice:0.0.1-SNAPSHOT
+    mem_limit: 700m
+    restart: always
+    ports:
+      - "8100:8100"
+    networks:
+      - currency-network  
+    depends_on:
+      - naming-server
+    environment:
+      EUREKA.CLIENT.SERVICEURL.DEFAULTZONE: http://naming-server:8761/eureka 
+      #SPRING.ZIPKIN.BASEURL: http://zipkin-server:9411/            
+      
+      
+  naming-server:
+    image: domainexercise/mmv2-naming-server:0.0.1-SNAPSHOT
+    mem_limit: 700m
+    ports:
+      - "8761:8761"
+    networks:
+      - currency-network  
+      
+  prometheus:
+    image: prom/prometheus:v2.37.1
+    container_name: prometheus
+    networks:
+      - currency-network
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - api-gateway
+      - attendance-microservice
+      - swipe-microservice
+      - naming-server
+
+  grafana:
+    image: grafana/grafana-oss:8.5.2
+    container_name: grafana
+    networks:
+      - currency-network
+    restart: always
+    ports:
+      - "3000:3000"
+    links:
+      - prometheus:prometheus
+    volumes:
+      - ./grafana:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=password    
+
+volumes:
+  dbdata6:  
+  mydb:  
+  
+networks:
+  currency-network:  
