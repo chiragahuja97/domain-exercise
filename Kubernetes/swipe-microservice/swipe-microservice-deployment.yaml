@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: Kompose --file docker-compose.yml convert
+    kompose.version: 1.28.0 (c4137012e)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: swipe-microservice
+  name: swipe-microservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: swipe-microservice
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: Kompose --file docker-compose.yml convert
+        kompose.version: 1.28.0 (c4137012e)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/links-currency-network: "true"
+        io.kompose.service: swipe-microservice
+    spec:
+      containers:
+        - env:
+            - name: EUREKA.CLIENT.SERVICEURL.DEFAULTZONE
+              value: http://naming-server:8761/eureka
+          image: domainexercise/mmv2-swipe-microservice:0.0.1-SNAPSHOT
+          name: swipe-microservice
+          ports:
+            - containerPort: 8100
+          resources:
+            limits:
+              memory: "734003200"
+      restartPolicy: Always
+status: {}

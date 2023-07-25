@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: Kompose --file docker-compose.yml convert
+    kompose.version: 1.28.0 (c4137012e)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: naming-server
+  name: naming-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: naming-server
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: Kompose --file docker-compose.yml convert
+        kompose.version: 1.28.0 (c4137012e)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/links-currency-network: "true"
+        io.kompose.service: naming-server
+    spec:
+      containers:
+        - image: domainexercise/mmv2-naming-server:0.0.1-SNAPSHOT
+          name: naming-server
+          ports:
+            - containerPort: 8761
+          resources:
+            limits:
+              memory: "734003200"
+      restartPolicy: Always
+status: {}
